@@ -2,35 +2,57 @@ name: Build RIO kernel + System.map
 
 on: workflow_dispatch
 
+defaults:
+  run:
+    shell: bash
+
 jobs:
   build:
     runs-on: ubuntu-latest
     container:
       image: ubuntu:20.04
     steps:
-      - name: Install deps (python2 + build tools)
+      - name: Install deps
         run: |
           export DEBIAN_FRONTEND=noninteractive
           apt-get update -qq
-          apt-get install -y -qq build-essential bc flex bison libssl-dev libncurses-dev python2 curl xz-utils git
+          apt-get install -y -qq build-essential bc flex bison libssl-dev libncurses-dev python2 curl xz-utils git ccache
           ln -sf /usr/bin/python2 /usr/local/bin/python
           python --version
 
-      - name: Get Linaro gcc 4.9 (aarch64)
+      - name: Cache toolchain
+        id: cache-tc
+        uses: actions/cache@v4
+        with:
+          path: /tmp/gcc-linaro-4.9.4-2017.01-x86_64_aarch64-linux-gnu
+          key: linaro-gcc-4.9.4-aarch64-v1
+
+      - name: Get Linaro gcc 4.9
+        if: steps.cache-tc.outputs.cache-hit != 'true'
         run: |
           curl -L -o /tmp/toolchain.tar.xz "https://raw.githubusercontent.com/rikeyone/gcc-toolchain/aarch64-linux-gnu/gcc-linaro-4.9.4-2017.01-x86_64_aarch64-linux-gnu.tar.xz"
           tar xf /tmp/toolchain.tar.xz -C /tmp
-          echo "CROSS=/tmp/gcc-linaro-4.9.4-2017.01-x86_64_aarch64-linux-gnu/bin/aarch64-linux-gnu-" >> $GITHUB_ENV
 
-      - name: Clone kernel source
+      - name: Set env
+        run: echo "CROSS=ccache /tmp/gcc-linaro-4.9.4-2017.01-x86_64_aarch64-linux-gnu/bin/aarch64-linux-gnu-" >> $GITHUB_ENV
+
+      - name: Cache ccache
+        uses: actions/cache@v4
+        with:
+          path: /tmp/ccache
+          key: ccache-rio-${{ github.sha }}
+          restore-keys: ccache-rio-
+
+      - name: Clone kernel
         run: git clone --depth 1 -b cm-14.1 https://gitee.com/feiser/android_kernel_huawei_msm8939.git /tmp/kernel
 
       - name: Build
         run: |
           cd /tmp/kernel
+          export CCACHE_DIR=/tmp/ccache
           set -o pipefail
-          make ARCH=arm64 CROSS_COMPILE=$CROSS HOSTCFLAGS="-fcommon" cm_rio_defconfig
-          make ARCH=arm64 CROSS_COMPILE=$CROSS HOSTCFLAGS="-fcommon" KBUILD_CFLAGS="-Wno-error" -j$(nproc) 2>&1 | tail -100
+          make ARCH=arm64 CROSS_COMPILE="$CROSS " HOSTCFLAGS="-fcommon" cm_rio_defconfig
+          make ARCH=arm64 CROSS_COMPILE="$CROSS " HOSTCFLAGS="-fcommon" KBUILD_CFLAGS="-Wno-error" -j$(nproc) 2>&1 | tail -120
           echo "=== build rc: ${PIPESTATUS[0]} ==="
           ls -lh System.map vmlinux 2>&1
 
