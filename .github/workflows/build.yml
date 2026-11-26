@@ -34,7 +34,7 @@ jobs:
           tar xf /tmp/toolchain.tar.xz -C /tmp
 
       - name: Set env
-        run: echo "CROSS=ccache /tmp/gcc-linaro-4.9.4-2017.01-x86_64_aarch64-linux-gnu/bin/aarch64-linux-gnu-" >> $GITHUB_ENV
+        run: echo "CROSS=/tmp/gcc-linaro-4.9.4-2017.01-x86_64_aarch64-linux-gnu/bin/aarch64-linux-gnu-" >> $GITHUB_ENV
 
       - name: Cache ccache
         uses: actions/cache@v4
@@ -49,10 +49,9 @@ jobs:
       - name: Build
         run: |
           cd /tmp/kernel
-          export CCACHE_DIR=/tmp/ccache
           set -o pipefail
-          make ARCH=arm64 CROSS_COMPILE="$CROSS " HOSTCFLAGS="-fcommon" cm_rio_defconfig
-          make ARCH=arm64 CROSS_COMPILE="$CROSS " HOSTCFLAGS="-fcommon" KBUILD_CFLAGS="-Wno-error" -j$(nproc) 2>&1 | tail -120
+          make ARCH=arm64 CROSS_COMPILE=$CROSS HOSTCFLAGS="-fcommon" cm_rio_defconfig
+          make ARCH=arm64 CROSS_COMPILE=$CROSS HOSTCFLAGS="-fcommon" KBUILD_CFLAGS="-Wno-error" -j$(nproc) 2>&1 | tail -120
           echo "=== build rc: ${PIPESTATUS[0]} ==="
           ls -lh System.map vmlinux 2>&1
 
