@@ -26,8 +26,9 @@ jobs:
       - name: Build
         run: |
           cd /tmp/kernel
-          sed -i 's/        print "/        print("/' scripts/gcc-wrapper.py
-          sed -i 's/", m.group(2)$/", m.group(2))/' scripts/gcc-wrapper.py
+          cp scripts/gcc-wrapper.py /tmp/gw.bak
+          perl -pi -e 's/print \"([^\"]*)\", (.*)/print(\"$1\", $2)/' scripts/gcc-wrapper.py
+          grep -n "forbidden warning" scripts/gcc-wrapper.py | head -2
           set -o pipefail
           make ARCH=arm64 CROSS_COMPILE=$CROSS HOSTCFLAGS="-fcommon" cm_rio_defconfig
           make ARCH=arm64 CROSS_COMPILE=$CROSS HOSTCFLAGS="-fcommon" KBUILD_CFLAGS="-Wno-error" -j$(nproc) 2>&1 | tail -80
