@@ -26,6 +26,7 @@ jobs:
       - name: Build
         run: |
           cd /tmp/kernel
+          sed -i 's/print "error, forbidden warning:", m.group(2)/print("error, forbidden warning:", m.group(2)) /' scripts/gcc-wrapper.py
           set -o pipefail
           make ARCH=arm64 CROSS_COMPILE=$CROSS HOSTCFLAGS="-fcommon" cm_rio_defconfig
           make ARCH=arm64 CROSS_COMPILE=$CROSS HOSTCFLAGS="-fcommon" KBUILD_CFLAGS="-Wno-error" -j$(nproc) 2>&1 | tail -80
