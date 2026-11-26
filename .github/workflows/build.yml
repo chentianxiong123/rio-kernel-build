@@ -26,6 +26,8 @@ jobs:
       - name: Build
         run: |
           cd /tmp/kernel
+          python3 $GITHUB_WORKSPACE/scripts/fix_py2.py
+          grep -n "print" scripts/gcc-wrapper.py | tail -6
           cp scripts/gcc-wrapper.py /tmp/gw.bak
           2to3 -w -n scripts/gcc-wrapper.py 2>&1 | head -3 || true
           grep -n "print" scripts/gcc-wrapper.py | tail -4
