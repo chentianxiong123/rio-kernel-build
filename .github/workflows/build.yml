@@ -4,15 +4,17 @@ on: workflow_dispatch
 
 jobs:
   build:
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-latest
+    container:
+      image: ubuntu:20.04
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Install deps
+      - name: Install deps (python2 + build tools)
         run: |
-          sudo apt-get update -qq
-          sudo apt-get install -y -qq build-essential bc flex bison libssl-dev libncurses-dev python3
+          export DEBIAN_FRONTEND=noninteractive
+          apt-get update -qq
+          apt-get install -y -qq build-essential bc flex bison libssl-dev libncurses-dev python2 curl xz-utils git
+          ln -sf /usr/bin/python2 /usr/local/bin/python
+          python --version
 
       - name: Get Linaro gcc 4.9 (aarch64)
         run: |
@@ -26,21 +28,17 @@ jobs:
       - name: Build
         run: |
           cd /tmp/kernel
-          python3 $GITHUB_WORKSPACE/scripts/fix_py2.py
-          grep -n "print" scripts/gcc-wrapper.py | tail -6
-          cp scripts/gcc-wrapper.py /tmp/gw.bak
-          2to3 -w -n scripts/gcc-wrapper.py 2>&1 | head -3 || true
-          grep -n "print" scripts/gcc-wrapper.py | tail -4
           set -o pipefail
           make ARCH=arm64 CROSS_COMPILE=$CROSS HOSTCFLAGS="-fcommon" cm_rio_defconfig
-          make ARCH=arm64 CROSS_COMPILE=$CROSS HOSTCFLAGS="-fcommon" KBUILD_CFLAGS="-Wno-error" -j$(nproc) 2>&1 | tail -80
+          make ARCH=arm64 CROSS_COMPILE=$CROSS HOSTCFLAGS="-fcommon" KBUILD_CFLAGS="-Wno-error" -j$(nproc) 2>&1 | tail -100
           echo "=== build rc: ${PIPESTATUS[0]} ==="
+          ls -lh System.map vmlinux 2>&1
 
-      - name: Upload System.map
+      - name: Upload artifacts
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: system-map
+          name: kernel-symbols
           path: |
             /tmp/kernel/System.map
             /tmp/kernel/vmlinux
