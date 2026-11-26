@@ -7,7 +7,6 @@ for ln in lines:
     indent = ln[:len(ln)-len(stripped)]
     if stripped.startswith("print ") and not stripped.startswith("print("):
         body = stripped[len("print "):]
-        # py2 print with trailing comma => end=" "
         if body.rstrip().endswith(","):
             body = body.rstrip()[:-1].rstrip()
             out.append(indent + "print(" + body + ", end=\" \")")
@@ -15,5 +14,9 @@ for ln in lines:
             out.append(indent + "print(" + body + ")")
     else:
         out.append(ln)
-open(p, "w").write("\n".join(out))
-print("fixed py2 prints")
+t = "\n".join(out)
+# py3: bytes line rstrip with str arg fails -> use no-arg rstrip
+t = t.replace("line.rstrip(chr(10))", "line.rstrip()")
+t = t.replace("line.rstrip(" + repr(chr(10)) + ")", "line.rstrip()")
+open(p, "w").write(t)
+print("fixed py2 prints + bytes")
