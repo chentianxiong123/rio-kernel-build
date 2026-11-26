@@ -1,0 +1,41 @@
+name: Build RIO kernel + System.map
+
+on: workflow_dispatch
+
+jobs:
+  build:
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install deps
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq build-essential bc flex bison libssl-dev libncurses-dev
+
+      - name: Get Linaro gcc 4.9 (aarch64)
+        run: |
+          curl -L -o /tmp/toolchain.tar.xz "https://releases.linaro.org/components/toolchain/binaries/4.9-2017.01/aarch64-linux-gnu/gcc-linaro-4.9.4-2017.01-x86_64_aarch64-linux-gnu.tar.xz"
+          tar xf /tmp/toolchain.tar.xz -C /tmp
+          echo "CROSS=/tmp/gcc-linaro-4.9.4-2017.01-x86_64_aarch64-linux-gnu/bin/aarch64-linux-gnu-" >> $GITHUB_ENV
+
+      - name: Clone kernel source
+        run: git clone --depth 1 -b cm-14.1 https://gitee.com/feiser/android_kernel_huawei_msm8939.git /tmp/kernel
+
+      - name: Build
+        run: |
+          cd /tmp/kernel
+          make ARCH=arm64 CROSS_COMPILE=$CROSS cm_rio_defconfig
+          make ARCH=arm64 CROSS_COMPILE=$CROSS -j$(nproc) 2>&1 | tail -50
+          echo "=== build rc: ${PIPESTATUS[0]} ==="
+
+      - name: Upload System.map
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: system-map
+          path: |
+            /tmp/kernel/System.map
+            /tmp/kernel/vmlinux
+          if-no-files-found: warn
